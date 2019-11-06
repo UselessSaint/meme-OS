@@ -1,6 +1,6 @@
 
  Start  Stop   Length Name                   Class
- 00000H 0033BH 0033CH PM_SEG                 CODE
+ 00000H 00339H 0033AH PM_SEG                 CODE
  00340H 004BDH 0017EH RM_SEG                 CODE
  004C0H 005BFH 00100H STACK_SEG              STACK
 

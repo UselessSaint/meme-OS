@@ -1,0 +1,912 @@
+Microsoft (R) Macro Assembler Version 5.10                  11/7/19 01:01:05
+                                                             Page     1-1
+
+
+				.386p 
+				
+				descr struc    ; Структура для оп
+				исания декскриптора сегм�
+				�нта в таблице глобальных 
+				дескрипторов GDT
+ 0000  0000				lim 		dw 0	
+ 0002  0000				base_l 	dw 0	
+ 0004  00				base_m 	db 0	
+ 0005  00				attr_1	db 0	
+ 0006  00				attr_2	db 0	
+ 0007  00				base_h 	db 0	
+ 0008				descr ends
+				
+				int_descr struc ; структура для о�
+				�исания декскриптора прер
+				ывания
+ 0000  0000				offs_l 	dw 0 	
+ 0002  0000				sel			dw 0	
+ 0004  00				counter db 0  
+ 0005  00				attr		db 0  
+ 0006  0000				offs_h 	dw 0  
+ 0008				int_descr ends
+				
+				; Protected mode
+ 0000				PM_seg	SEGMENT PARA PUBLIC 'CODE' USE32
+						
+					                ASSUME	CS:PM_seg
+				
+				    
+ 0000				  	GDT		label	byte
+				
+				  	
+ 0000  0000			  	gdt_null	descr <>
+ 0002  0000			
+ 0004  00			
+ 0005  00			
+ 0006  00			
+ 0007  00			
+				
+				
+				  	; 32-битный 4-гигабайтн�
+				�й сегмент с базой = 0
+ 0008  FFFF			  	gdt_flatDS	descr <0FFFFh,0,0,92h,1
+				1001111b,0>
+ 000A  0000			
+ 000C  00			
+ 000D  92			
+ 000E  CF			
+ 000F  00			
+				
+					; 16-битный 64-килобайтн
+				ый сегмент кода с базой RM_s
+				eg
+Microsoft (R) Macro Assembler Version 5.10                  11/7/19 01:01:05
+                                                             Page     1-2
+
+
+ 0010  7D01			  	gdt_16bitCS	descr <RM_seg_size-1,0,
+				0,98h,0,0>
+ 0012  0000			
+ 0014  00			
+ 0015  98			
+ 0016  00			
+ 0017  00			
+				
+					; 32-битный 4-гигабайтн�
+				�й сегмент кода с базой PM_se
+				g
+ 0018  3903			  	gdt_32bitCS	descr <PM_seg_size-1,0,
+				0,98h,01000000b,0>
+ 001A  0000			
+ 001C  00			
+ 001D  98			
+ 001E  40			
+ 001F  00			
+				
+					; 32-битный 4-гигабайтн�
+				�й сегмент данных с базой P
+				M_seg
+ 0020  3903			  	gdt_32bitDS	descr <PM_seg_size-1,0,
+				0,92h,01000000b,0>
+ 0022  0000			
+ 0024  00			
+ 0025  92			
+ 0026  40			
+ 0027  00			
+				
+					; 32-битный 4-гигабайтн�
+				�й сегмент данных с базой s
+				tack_seg
+ 0028  FF00			  	gdt_32bitSS	descr <stack_l-1,0,0, 9
+				2h, 01000000b,0>
+ 002A  0000			
+ 002C  00			
+ 002D  92			
+ 002E  40			
+ 002F  00			
+				
+ = 0030				  	gdt_size = $-GDT
+				
+ 0030  000000000000		  	gdtr	df 0	; переменная 
+				размера 6 байт как Регистр
+				 глобальной таблицы дескр
+				ипторов GDTR
+				    
+					; имена для селекторо�
+				�
+ = 0008				    SEL_flatDS     equ   8
+ = 0010				    SEL_16bitCS    equ   16
+ = 0018				    SEL_32bitCS    equ   24
+ = 0020				    SEL_32bitDS    equ   32
+Microsoft (R) Macro Assembler Version 5.10                  11/7/19 01:01:05
+                                                             Page     1-3
+
+
+ = 0028				    SEL_32bitSS    equ   40
+				
+					; Таблица дескрипторо
+				в прерываний IDT
+ 0036				    IDT	label	byte
+					; первые 32 элемента та
+				блицы (в программе не испо
+				льзуются)
+ 0036  0020[			    int_descr 32 dup (<0, SEL_32bitCS,0, 8Eh, 0
+				>)
+	   0000			
+	   1800			
+	   00			
+	   8E			
+	   0000			
+			 ]	
+				
+					; дескриптор прерыван
+				ия от таймера
+ 0136  0000			    int08 int_descr <0, SEL_32bitCS,0, 8Eh, 0>
+ 0138  1800			
+ 013A  00			
+ 013B  8E			
+ 013C  0000			
+				
+					; дескриптор прерыван
+				ия от клавиатуры
+ 013E  0000			    int09 int_descr	<0, SEL_32bitCS,0, 8Eh,
+				 0>
+ 0140  1800			
+ 0142  00			
+ 0143  8E			
+ 0144  0000			
+				
+				
+ = 0110				    idt_size = $-IDT 
+				
+ 0146  000000000000		    idtr	df 0 ; переменная р�
+				�змера 6 байт как Регистр т
+				аблицы дескрипторов прер�
+				�ваний IDTR
+				
+ 014C  03FF 0000 0000		    idtr_real dw	3FFh,0,0 ; содерж
+				имое регистра IDTR в реальн�
+				�м режиме
+				
+ 0152  00			    master		db 0  ; маска пр
+				ерываний ведущего контро�
+				�лера				
+					 
+ 0153  00			    slave		db 0  ; ведомог�
+				�					 
+				
+ 0154  00			    escape		db 0  ; флаг - по
+Microsoft (R) Macro Assembler Version 5.10                  11/7/19 01:01:05
+                                                             Page     1-4
+
+
+				ра выходить в реальный ре�
+				�им, если ==1			
+ 0155  00000000			    time_08		dd 0  ; счетчик 
+				прошедших тиков таймера
+						
+				
+ 0159  49 6E 20 52 65 61			msg1 db 'In Real Mode now. To m
+				ove to Protected Mode press any key.$'
+       6C 20 4D 6F 64 65	
+       20 6E 6F 77 2E 20	
+       54 6F 20 6D 6F 76	
+       65 20 74 6F 20 50	
+       72 6F 74 65 63 74	
+       65 64 20 4D 6F 64	
+       65 20 70 72 65 73	
+       73 20 61 6E 79 20	
+       6B 65 79 2E 24		
+ 0194  49 6E 20 52 65 61			msg2 db 'In Real Mode again!$'
+       6C 20 4D 6F 64 65	
+       20 61 67 61 69 6E	
+       21 24			
+				
+				
+ 01A8  00 00 31 32 33 34			ASCII_table	db 0, 0, 49, 50
+				, 51, 52, 53, 54, 55, 56, 57, 48, 45, 61, 0, 0
+       35 36 37 38 39 30	
+       2D 3D 00 00		
+ 01B8  51 57 45 52 54 59						db 81, 
+				87, 69, 82, 84, 89, 85, 73, 79, 80, 91, 93, 0, 
+				0, 65, 83
+       55 49 4F 50 5B 5D	
+       00 00 41 53		
+ 01C8  44 46 47 48 4A 4B						db 68, 
+				70, 71, 72, 74, 75, 76, 59, 39, 96, 0, 92, 90, 
+				88, 67
+       4C 3B 27 60 00 5C	
+       5A 58 43			
+ 01D7  56 42 4E 4D 2C 2E						db 86, 
+				66, 78, 77, 44, 46, 47
+       2F			
+ 01DE  000001E0					out_position	dd 1E0h 
+				
+				
+				
+				
+				print_str macro str
+						mov ah,9
+						mov dx, str
+						int 21h
+				endm
+				
+				
+				create_number macro
+						local number1
+Microsoft (R) Macro Assembler Version 5.10                  11/7/19 01:01:05
+                                                             Page     1-5
+
+
+							cmp dl,10
+							jl number1
+							add dl,'A' - '0' - 10
+						number1:
+							add dl,'0'
+				endm
+				
+				
+				
+				my_print_eax macro
+						local prcyc1 		
+						
+							push ecx 	
+							
+							push dx
+				
+							mov ecx,8	
+								
+							add ebp,0B8040h 
+							; 0B8000h - смеще�
+				�ие видеобуффера относите
+				льно начала сегмента.
+				
+						prcyc1:
+							mov dl,al	
+							
+							and dl,0Fh	
+							
+							create_number 0	
+					
+							mov es:[ebp],dl	
+					
+							ror eax,4	
+								
+									
+									
+						
+							sub ebp,2	
+								
+							loop prcyc1	
+							
+				
+							sub ebp,0B8010h	
+					
+							pop dx
+							pop ecx
+				endm
+				
+				
+				; точка входа в 32-битный за
+				щищенный режим
+ 01E2				PM_entry:
+ 01E2  66| B8 0020				mov	ax,SEL_32bitDS
+ 01E6  66| 8E D8				mov	ds,ax
+Microsoft (R) Macro Assembler Version 5.10                  11/7/19 01:01:05
+                                                             Page     1-6
+
+
+ 01E9  66| B8 0008				mov	ax,SEL_flatDS
+ 01ED  66| 8E C0				mov	es,ax
+ 01F0  66| B8 0028				mov	ax,SEL_32bitSS
+ 01F4  BB 00000100 90				mov	ebx,stack_l
+ 01FA  66| 8E D0				mov	ss,ax
+ 01FD  8B E3					mov	esp,ebx
+				
+						; разрешить преры
+				вания, запрещенные ранее �
+				�щё в реальном режиме
+ 01FF  FB					sti 
+				
+						;считаем количес�
+				�во доступной памяти
+ 0200  E8 000002CA R				call	compute_memory
+				
+ 0205				work:
+ 0205  2E: F6 05 00000154 R			test	escape, 1
+       01			
+ 020D  74 F6					jz	work
+				
+ 020F				goback:
+ 020F  FA					cli 
+				
+ 0210  EA					db	0EAh 
+ 0211  0000011E R				dd	offset RM_return
+ 0215  0010					dw	SEL_16bitCS
+				
+				
+					;новый обработчик пре
+				рывания от системного тай
+				мера
+ 0217				new_int08:
+ 0217  50					push eax
+ 0218  55					push ebp
+ 0219  51					push ecx
+ 021A  66| 52					push dx
+ 021C  2E: A1 00000155 R			mov  eax,time_08
+				
+				
+ 0222  55					push ebp
+ 0223  BD 00000000				mov ebp, 0		
+							
+						my_print_eax 0		
+					
+ 0228  51                    1				push ecx 
+ 0229  66| 52                1				push dx 
+ 022B  B9 00000008           1				mov ecx,8 
+ 0230  81 C5 000B8040        1				add ebp,0B8040h 
+ 0236                        1			??0000: 
+ 0236  8A D0                 1				mov dl,al 
+ 0238  80 E2 0F              1				and dl,0Fh 
+ 023B  80 FA 0A              2				cmp dl,10 
+ 023E  0F 8C 00000247 R      2				jl ??0001 
+Microsoft (R) Macro Assembler Version 5.10                  11/7/19 01:01:05
+                                                             Page     1-7
+
+
+ 0244  80 C2 07              2				add dl,'A' - '0' - 10 
+ 0247                        2			??0001: 
+ 0247  80 C2 30              2				add dl,'0' 
+ 024A  26: 88 55 00          1				mov es:[ebp],dl 
+ 024E  C1 C8 04              1				ror eax,4 
+ 0251  83 ED 02              1				sub ebp,2 
+ 0254  E2 E0                 1				loop ??0000 
+ 0256  81 ED 000B8010        1				sub ebp,0B8010h 
+ 025C  66| 5A                1				pop dx 
+ 025E  59                    1				pop ecx 
+ 025F  5D					pop ebp			
+								
+				
+ 0260  40					inc eax
+ 0261  2E: A3 00000155 R			mov time_08,eax
+				
+ 0267  66| 5A					pop dx
+ 0269  59					pop ecx
+ 026A  5D					pop ebp
+				
+					
+ 026B  B0 20					mov	al,20h
+ 026D  E6 20					out	20h,al
+ 026F  58					pop eax
+				
+ 0270  CF					iretd 
+				
+					; Новый обработчик пр�
+				�рывания клавиатуры для з�
+				�щищенного режима:
+ 0271				new_int09:
+ 0271  50						push eax
+ 0272  53						push ebx
+ 0273  55						push ebp
+ 0274  52						push edx
+				
+ 0275  E4 60						in	al,60h 	
+					 ; Получаем скан-код н�
+				�жатой клавиши из порта кл
+				авиатуры
+				
+ 0277  3C 1C						cmp	al,1Ch 	     
+ 0279  0F 85 0000028C R					jne	not_leave 
+					 
+ 027F  2E: C6 05 00000154 R				mov escape,1     
+       01			
+ 0287  EB 32 90 90 90					jmp leav
+ 028C				not_leave:
+ 028C  3C 80						cmp al,80h 	; Ср�
+				�вним какой скан-код прише
+				л: нажатой клавиши или отж
+				атой?
+ 028E  0F 87 000002BB R					ja leav 	 
+ 0294  32 E4						xor ah,ah	 
+Microsoft (R) Macro Assembler Version 5.10                  11/7/19 01:01:05
+                                                             Page     1-8
+
+
+ 0296  66| 8B E8					mov bp,ax
+ 0299  2E: 8A 95 000001A8 R				mov dl,ASCII_table[ebp]
+				 
+ 02A0  BD 000B8000					mov ebp,0B8000h
+ 02A5  2E: 8B 1D 000001DE R				mov ebx,out_position   
+ 02AC  26: 88 541D 00					mov es:[ebp+ebx],dl
+				
+ 02B1  83 C3 02						add ebx,2	
+						   
+ 02B4  2E: 89 1D 000001DE R				mov out_position,ebx
+				
+ 02BB				leav:
+							; Разрешаем о
+				брабатывать клавиатуру д�
+				�льше:
+ 02BB  E4 61						in	al,61h
+ 02BD  0C 80						or	al,80h
+ 02BF  E6 61						out	61h,al
+				
+ 02C1  B0 20						mov	al,20h
+ 02C3  E6 20						out	20h,al
+				
+ 02C5  5A						pop edx
+ 02C6  5D						pop ebp
+ 02C7  5B						pop ebx
+ 02C8  58						pop	eax
+				
+ 02C9  CF						iretd
+				
+				
+				
+ 02CA				compute_memory	proc
+				
+ 02CA  1E					push	ds            
+ 02CB  66| B8 0008				mov	ax, SEL_flatDS	
+ 02CF  66| 8E D8				mov	ds, ax	; кладем 
+				в ds сегмент на 4 ГБ - все до�
+				�тупное виртуальное АП
+						
+ 02D2  BB 00100001				mov	ebx, 100001h ; проп
+				ускаем первый мегабайт се
+				гмента
+ 02D7  B2 AA					mov	dl,	10101010b
+					 
+				
+ 02D9  B9 FFEFFFFE				mov	ecx, 0FFEFFFFEh	
+						; в ECX кладём коли�
+				�ество оставшейся памяти (
+				до превышения лимита в 4ГБ
+				) - чтобы не было переполне
+				ния
+				
+				
+ 02DE				check:
+Microsoft (R) Macro Assembler Version 5.10                  11/7/19 01:01:05
+                                                             Page     1-9
+
+
+ 02DE  8A 33					mov	dh, ds:[ebx]	; со�
+				�раняем в DH текущее значен
+				ие по некоторому байту па�
+				�яти
+ 02E0  88 13					mov	ds:[ebx], dl	; кл�
+				�дём некоторое значение (з
+				аданное выше DL) в этот бай�
+				�	
+ 02E2  38 13					cmp	ds:[ebx], dl	; пр�
+				�веряем - считается обратн
+				о то же DL
+ 02E4  0F 85 000002EF R				jnz	end_of_memory	; ес�
+				�и нет - достигли конца пам
+				яти
+ 02EA  88 33					mov	ds:[ebx], dh	; ин�
+				�че кладем обратно то, что 
+				там было
+ 02EC  43					inc	ebx		
+									
+ 02ED  E2 EF					loop	check
+ 02EF				end_of_memory:
+ 02EF  1F					pop	ds		
+									
+ 02F0  33 D2					xor	edx, edx
+ 02F2  8B C3					mov	eax, ebx	; в EB
+				X лежит количество посчит�
+				�нной памяти в байтах; кла�
+				�ём его в EAX,			
+ 02F4  BB 00100000				mov	ebx, 100000h ; дели
+				м на 1 Мб, чтобы получить р�
+				�зультат в мегабайтах	
+					
+ 02F9  F7 F3					div	ebx
+				
+ 02FB  55					push ebp
+ 02FC  BD 00000014				mov ebp,20		
+							
+						my_print_eax 0		
+					
+ 0301  51                    1				push ecx 
+ 0302  66| 52                1				push dx 
+ 0304  B9 00000008           1				mov ecx,8 
+ 0309  81 C5 000B8040        1				add ebp,0B8040h 
+ 030F                        1			??0002: 
+ 030F  8A D0                 1				mov dl,al 
+ 0311  80 E2 0F              1				and dl,0Fh 
+ 0314  80 FA 0A              2				cmp dl,10 
+ 0317  0F 8C 00000320 R      2				jl ??0003 
+ 031D  80 C2 07              2				add dl,'A' - '0' - 10 
+ 0320                        2			??0003: 
+ 0320  80 C2 30              2				add dl,'0' 
+ 0323  26: 88 55 00          1				mov es:[ebp],dl 
+ 0327  C1 C8 04              1				ror eax,4 
+ 032A  83 ED 02              1				sub ebp,2 
+Microsoft (R) Macro Assembler Version 5.10                  11/7/19 01:01:05
+                                                             Page     1-10
+
+
+ 032D  E2 E0                 1				loop ??0002 
+ 032F  81 ED 000B8010        1				sub ebp,0B8010h 
+ 0335  66| 5A                1				pop dx 
+ 0337  59                    1				pop ecx 
+ 0338  5D					pop ebp			
+								
+				
+ 0339  C3					ret
+ 033A					compute_memory	endp
+				
+				
+ = 033A					PM_seg_size = $-GDT
+ 033A				PM_seg	ENDS
+				
+ 0000				stack_seg	SEGMENT  PARA STACK 'STACK'
+ 0000  0100[				stack_start	db	100h dup(?)
+	   ??			
+			 ]	
+				
+ = 0100					stack_l = $-stack_start	
+ 0100				stack_seg 	ENDS
+				
+				
+				
+				
+				; Real Mode
+ 0000				RM_seg	SEGMENT PARA PUBLIC 'CODE' USE16
+						
+					ASSUME CS:RM_seg, DS:PM_seg, SS:stack_s
+				eg
+				
+ 0000				start:
+				
+ 0000  B8 ---- R				mov   ax,PM_seg
+ 0003  8E D8					mov   ds,ax
+				
+ 0005  B4 09					mov ah, 09h
+ 0007  66| BA 0159 R				mov edx, offset msg1
+ 000D  CD 21					int 21h
+				
+ 000F  66| 50					push eax
+ 0011  B4 10					mov ah,10h
+ 0013  CD 16					int 16h
+ 0015  66| 58					pop eax
+				
+ 0017  B8 0003					mov	ax,3
+ 001A  CD 10					int	10h
+				
+ 001C  68 ---- R				push PM_seg
+ 001F  1F					pop ds
+				
+ 0020  66| 33 C0				xor	eax,eax
+ 0023  B8 ---- R				mov	ax,RM_seg
+ 0026  66| C1 E0 04				shl	eax,4		
+Microsoft (R) Macro Assembler Version 5.10                  11/7/19 01:01:05
+                                                             Page     1-11
+
+
+ 002A  67| A3 00000012 R			mov	word ptr gdt_16bitCS.ba
+				se_l,ax
+ 0030  66| C1 E8 10				shr	eax,16
+ 0034  67| A2 00000014 R			mov	byte ptr gdt_16bitCS.ba
+				se_m,al
+ 003A  B8 ---- R				mov	ax,PM_seg
+ 003D  66| C1 E0 04				shl	eax,4
+ 0041  66| 50					push eax		
+ 0043  66| 50					push eax		
+ 0045  67| A3 0000001A R			mov	word ptr GDT_32bitCS.ba
+				se_l,ax
+ 004B  67| A3 0000002A R			mov	word ptr GDT_32bitSS.ba
+				se_l,ax
+ 0051  67| A3 00000022 R			mov	word ptr GDT_32bitDS.ba
+				se_l,ax
+ 0057  66| C1 E8 10				shr	eax,16
+ 005B  67| A2 0000001C R			mov	byte ptr GDT_32bitCS.ba
+				se_m,al
+ 0061  67| A2 0000002C R			mov	byte ptr GDT_32bitSS.ba
+				se_m,al
+ 0067  67| A2 00000024 R			mov	byte ptr GDT_32bitDS.ba
+				se_m,al
+				
+						; вычислим линейн
+				ый адрес GDT
+ 006D  66| 58					pop eax
+ 006F  66| 05 0000 R				add	eax,offset GDT 	
+									
+ 0075  67| 66| A3 00000032 R			mov	dword ptr gdtr+2,eax
+							
+ 007C  67| C7 05 00000030 R			mov word ptr gdtr, gdt_size-1
+					
+       002F			
+ 0085  67| 0F 01 15 00000030			lgdt	fword ptr gdtr
+	R			
+				
+						; аналогично вычи
+				слим линейный адрес IDT
+ 008D  66| 58					pop	eax
+ 008F  66| 05 0036 R				add	eax,offset IDT
+ 0095  67| 66| A3 00000148 R			mov	dword ptr idtr+2,eax
+ 009C  67| C7 05 00000146 R			mov word ptr idtr, idt_size-1
+       010F			
+				
+						; Заполним смещен
+				ие в дескрипторах прерыва
+				ний
+ 00A5  66| B8 0217 R				mov	eax, offset new_int08 
+ 00AB  67| A3 00000136 R			mov	int08.offs_l, ax
+ 00B1  66| C1 E8 10				shr	eax, 16
+ 00B5  67| A3 0000013C R			mov	int08.offs_h, ax
+ 00BB  66| B8 0271 R				mov	eax, offset new_int09 
+ 00C1  67| A3 0000013E R			mov	int09.offs_l, ax
+ 00C7  66| C1 E8 10				shr	eax, 16
+Microsoft (R) Macro Assembler Version 5.10                  11/7/19 01:01:05
+                                                             Page     1-12
+
+
+ 00CB  67| A3 00000144 R			mov	int09.offs_h, ax
+				
+						; сохраним маски �
+				�рерываний контроллеров
+ 00D1  E4 21					in	al, 21h		
+									
+ 00D3  67| A2 00000152 R			mov	master, al	
+								
+ 00D9  E4 A1					in	al, 0A1h	
+									
+ 00DB  67| A2 00000153 R			mov	slave, al
+				
+ 00E1  B0 11					mov	al, 11h		
+									
+ 00E3  E6 20					out	20h, al		
+									
+ 00E5  B0 20					mov	AL, 20h		
+									
+ 00E7  E6 21					out	21h, al		
+									
+ 00E9  B0 04					mov	al, 4		
+									
+					
+				
+ 00EB  E6 21					out	21h, al
+ 00ED  B0 01					mov	al, 1		
+									  
+ 00EF  E6 21					out	21h, al
+				
+						; Запретим все пр�
+				�рывания в ведущем контро�
+				�лере, кроме IRQ0 (таймер) и IR
+				Q1(клавиатура)
+ 00F1  B0 FC					mov	al, 0FCh
+ 00F3  E6 21					out	21h, al
+				
+						;запретим все пре
+				рывания в ведомом контрол
+				лере
+ 00F5  B0 FF					mov	al, 0FFh
+ 00F7  E6 A1					out	0A1h, al
+				
+ 00F9  67| 0F 01 1D 00000146			lidt	fword ptr idtr
+	R			
+				
+ 0101  E4 92					in	al,92h		
+								
+ 0103  0C 02					or	al,2		
+									
+ 0105  E6 92					out	92h,al		
+							
+				
+ 0107  FA					cli
+						; запрещаем немас
+Microsoft (R) Macro Assembler Version 5.10                  11/7/19 01:01:05
+                                                             Page     1-13
+
+
+				кируемые прерывания
+ 0108  E4 70					in	al,70h
+ 010A  0C 80					or	al,80h
+ 010C  E6 70					out	70h,al
+				
+ 010E  0F 20 C0					mov	eax,cr0
+ 0111  0C 01					or	al,1
+ 0113  0F 22 C0					mov	cr0,eax
+				
+ 0116  66					db	66h
+ 0117  EA					db	0EAh
+ 0118  000001E2 R				dd	offset PM_entry
+ 011C  0018					dw	SEL_32bitCS
+				
+ 011E				RM_return:
+ 011E  0F 20 C0					mov	eax,cr0
+ 0121  24 FE					and	al,0FEh 	
+							
+ 0123  0F 22 C0					mov	cr0,eax
+				
+				
+ 0126  EA					db	0EAh		
+								
+ 0127  012B R					dw	$+4		
+									
+ 0129  ---- R					dw	RM_seg
+				
+ 012B  B8 ---- R				mov	ax,PM_seg	
+						
+ 012E  8E D8					mov	ds,ax
+ 0130  8E C0					mov	es,ax
+ 0132  B8 ---- R				mov	ax,stack_seg
+ 0135  BB 0100					mov	bx,stack_l
+ 0138  8E D0					mov	ss,ax
+ 013A  8B E3					mov	sp,bx
+				
+						; перепрограммир�
+				�ем ведущий контроллер об�
+				�атно 
+ 013C  B0 11					mov	al, 11h		
+						
+ 013E  E6 20					out	20h, al
+ 0140  B0 08					mov	al, 8		
+							
+ 0142  E6 21					out	21h, al
+ 0144  B0 04					mov	al, 4		
+								
+ 0146  E6 21					out	21h, al
+ 0148  B0 01					mov	al, 1
+ 014A  E6 21					out	21h, al
+				
+ 014C  67| A0 00000152 R			mov	al, master
+ 0152  E6 21					out	21h, al
+ 0154  67| A0 00000153 R			mov	al, slave
+Microsoft (R) Macro Assembler Version 5.10                  11/7/19 01:01:05
+                                                             Page     1-14
+
+
+ 015A  E6 A1					out	0A1h, al
+				
+ 015C  67| 0F 01 1D 0000014C			lidt	fword ptr idtr_real
+	R			
+				
+						; разрешаем немас
+				кируемые прерывания
+ 0164  E4 70					in	al,70h
+ 0166  24 7F					and	al,07FH
+ 0168  E6 70					out	70h,al
+				
+ 016A  FB					sti
+				
+ 016B  B8 0003					mov	ax,3
+ 016E  CD 10					int	10h
+				
+ 0170  B4 09					mov ah, 09h
+ 0172  66| BA 0194 R				mov edx, offset msg2
+ 0178  CD 21					int 21h
+				
+				
+ 017A  B4 4C					mov	ah,4Ch
+ 017C  CD 21					int	21h
+				
+ = 017E				RM_seg_size = $-start 	
+ 017E				RM_seg	ENDS
+				END start
+
+Microsoft (R) Macro Assembler Version 5.10                  11/7/19 01:01:05
+                                                             Symbols-1
+
+
+Macros:
+
+		N a m e			Lines
+
+CREATE_NUMBER  . . . . . . . . .  	   5
+MY_PRINT_EAX . . . . . . . . . .  	  16
+PRINT_STR  . . . . . . . . . . .  	   3
+
+Structures and Records:
+
+                N a m e                 Width   # fields
+                                        Shift   Width   Mask    Initial
+
+DESCR  . . . . . . . . . . . . .  	0008	0006
+  LIM  . . . . . . . . . . . . .  	0000
+  BASE_L . . . . . . . . . . . .  	0002
+  BASE_M . . . . . . . . . . . .  	0004
+  ATTR_1 . . . . . . . . . . . .  	0005
+  ATTR_2 . . . . . . . . . . . .  	0006
+  BASE_H . . . . . . . . . . . .  	0007
+INT_DESCR  . . . . . . . . . . .  	0008	0005
+  OFFS_L . . . . . . . . . . . .  	0000
+  SEL  . . . . . . . . . . . . .  	0002
+  COUNTER  . . . . . . . . . . .  	0004
+  ATTR . . . . . . . . . . . . .  	0005
+  OFFS_H . . . . . . . . . . . .  	0006
+
+Segments and Groups:
+
+                N a m e         	Size	Length	 Align	Combine Class
+
+PM_SEG . . . . . . . . . . . . .  	32 Bit	033A	PARA	PUBLIC	'CODE'
+RM_SEG . . . . . . . . . . . . .  	16 Bit	017E	PARA	PUBLIC	'CODE'
+STACK_SEG  . . . . . . . . . . .  	32 Bit	0100	PARA	STACK	'STACK'
+
+Symbols:            
+
+                N a m e         	Type	 Value	 Attr
+
+ASCII_TABLE  . . . . . . . . . .  	L BYTE	01A8	PM_SEG
+
+CHECK  . . . . . . . . . . . . .  	L NEAR	02DE	PM_SEG
+COMPUTE_MEMORY . . . . . . . . .  	N PROC	02CA	PM_SEG	Length = 0070
+
+END_OF_MEMORY  . . . . . . . . .  	L NEAR	02EF	PM_SEG
+ESCAPE . . . . . . . . . . . . .  	L BYTE	0154	PM_SEG
+
+GDT  . . . . . . . . . . . . . .  	L BYTE	0000	PM_SEG
+GDTR . . . . . . . . . . . . . .  	L FWORD	0030	PM_SEG
+GDT_16BITCS  . . . . . . . . . .  	L QWORD	0010	PM_SEG
+GDT_32BITCS  . . . . . . . . . .  	L QWORD	0018	PM_SEG
+GDT_32BITDS  . . . . . . . . . .  	L QWORD	0020	PM_SEG
+GDT_32BITSS  . . . . . . . . . .  	L QWORD	0028	PM_SEG
+GDT_FLATDS . . . . . . . . . . .  	L QWORD	0008	PM_SEG
+Microsoft (R) Macro Assembler Version 5.10                  11/7/19 01:01:05
+                                                             Symbols-2
+
+
+GDT_NULL . . . . . . . . . . . .  	L QWORD	0000	PM_SEG
+GDT_SIZE . . . . . . . . . . . .  	NUMBER	0030	
+GOBACK . . . . . . . . . . . . .  	L NEAR	020F	PM_SEG
+
+IDT  . . . . . . . . . . . . . .  	L BYTE	0036	PM_SEG
+IDTR . . . . . . . . . . . . . .  	L FWORD	0146	PM_SEG
+IDTR_REAL  . . . . . . . . . . .  	L WORD	014C	PM_SEG
+IDT_SIZE . . . . . . . . . . . .  	NUMBER	0110	
+INT08  . . . . . . . . . . . . .  	L QWORD	0136	PM_SEG
+INT09  . . . . . . . . . . . . .  	L QWORD	013E	PM_SEG
+
+LEAV . . . . . . . . . . . . . .  	L NEAR	02BB	PM_SEG
+
+MASTER . . . . . . . . . . . . .  	L BYTE	0152	PM_SEG
+MSG1 . . . . . . . . . . . . . .  	L BYTE	0159	PM_SEG
+MSG2 . . . . . . . . . . . . . .  	L BYTE	0194	PM_SEG
+
+NEW_INT08  . . . . . . . . . . .  	L NEAR	0217	PM_SEG
+NEW_INT09  . . . . . . . . . . .  	L NEAR	0271	PM_SEG
+NOT_LEAVE  . . . . . . . . . . .  	L NEAR	028C	PM_SEG
+
+OUT_POSITION . . . . . . . . . .  	L DWORD	01DE	PM_SEG
+
+PM_ENTRY . . . . . . . . . . . .  	L NEAR	01E2	PM_SEG
+PM_SEG_SIZE  . . . . . . . . . .  	NUMBER	033A	
+
+RM_RETURN  . . . . . . . . . . .  	L NEAR	011E	RM_SEG
+RM_SEG_SIZE  . . . . . . . . . .  	NUMBER	017E	
+
+SEL_16BITCS  . . . . . . . . . .  	NUMBER	0010	
+SEL_32BITCS  . . . . . . . . . .  	NUMBER	0018	
+SEL_32BITDS  . . . . . . . . . .  	NUMBER	0020	
+SEL_32BITSS  . . . . . . . . . .  	NUMBER	0028	
+SEL_FLATDS . . . . . . . . . . .  	NUMBER	0008	
+SLAVE  . . . . . . . . . . . . .  	L BYTE	0153	PM_SEG
+STACK_L  . . . . . . . . . . . .  	NUMBER	0100	
+STACK_START  . . . . . . . . . .  	L BYTE	0000	STACK_SEG	Length = 0100
+START  . . . . . . . . . . . . .  	L NEAR	0000	RM_SEG
+
+TIME_08  . . . . . . . . . . . .  	L DWORD	0155	PM_SEG
+
+WORK . . . . . . . . . . . . . .  	L NEAR	0205	PM_SEG
+
+??0000 . . . . . . . . . . . . .  	L NEAR	0236	PM_SEG
+??0001 . . . . . . . . . . . . .  	L NEAR	0247	PM_SEG
+??0002 . . . . . . . . . . . . .  	L NEAR	030F	PM_SEG
+??0003 . . . . . . . . . . . . .  	L NEAR	0320	PM_SEG
+@CPU . . . . . . . . . . . . . .  	TEXT  3471		
+@FILENAME  . . . . . . . . . . .  	TEXT  lab_02		
+@VERSION . . . . . . . . . . . .  	TEXT  510		
+
+Microsoft (R) Macro Assembler Version 5.10                  11/7/19 01:01:05
+                                                             Symbols-3
+
+
+
+    441 Source  Lines
+    483 Total   Lines
+     74 Symbols
+
+  47834 + 434849 Bytes symbol space free
+
+      0 Warning Errors
+      0 Severe  Errors
